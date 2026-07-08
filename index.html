@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1220">
+<title>Carrossel Studio</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0d1220;--bg2:#151c30;--card:#1a2338;--card2:#212c46;
+  --line:#2b3654;--text:#eef2ff;--muted:#93a0c4;--muted2:#6b789e;
+  --accent:#6d8bff;--accent2:#9b6dff;--good:#33d99a;--warn:#ffb454;--bad:#ff6b81;
+  --radius:16px;
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  overflow-x:hidden}
+body{padding-bottom:84px}
+a{color:var(--accent)}
+::selection{background:var(--accent);color:#fff}
+
+/* ── HEADER ── */
+.topbar{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,var(--bg),rgba(13,18,32,.85));
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:14px 16px 12px}
+.brandrow{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:18px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 4px 14px rgba(109,139,255,.35)}
+.app-title{font-size:1.05rem;font-weight:800;letter-spacing:-.3px}
+.app-sub{font-size:.72rem;color:var(--muted);margin-top:1px}
+
+/* ── TABS (bottom nav) ── */
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:50;display:flex;
+  background:rgba(16,22,38,.96);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+.nav button{flex:1;background:none;border:0;color:var(--muted2);padding:10px 4px 12px;
+  font-size:.66rem;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.nav button .ic{font-size:20px;line-height:1}
+.nav button.on{color:var(--text)}
+.nav button.on .ic{filter:drop-shadow(0 0 8px var(--accent))}
+
+/* ── VIEWS ── */
+.view{display:none;padding:16px;animation:fade .25s ease}
+.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.section-title{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.6px;margin:4px 2px 10px}
+.hint{font-size:.78rem;color:var(--muted);line-height:1.5}
+
+/* ── FORM ── */
+label.fld{display:block;margin-bottom:14px}
+label.fld .lbl{font-size:.8rem;font-weight:600;color:var(--text);margin-bottom:6px;display:block}
+label.fld .sub{font-size:.72rem;color:var(--muted);font-weight:400}
+input,textarea,select{width:100%;background:var(--card);border:1px solid var(--line);color:var(--text);
+  border-radius:12px;padding:12px 13px;font-size:.92rem;font-family:inherit;outline:none;transition:border .15s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:120px;line-height:1.5}
+input::placeholder,textarea::placeholder{color:var(--muted2)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;border-radius:13px;
+  padding:15px;font-size:1rem;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(109,139,255,.32);
+  letter-spacing:.2px}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:var(--card);color:var(--text);border:1px solid var(--line);box-shadow:none}
+.btn.sm{width:auto;padding:10px 15px;font-size:.85rem;border-radius:11px}
+.btn.mini{width:auto;padding:8px 12px;font-size:.78rem;border-radius:10px}
+
+/* ── THEME PICKER ── */
+.themes{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
+.theme-card{position:relative;border-radius:14px;overflow:hidden;cursor:pointer;border:2px solid transparent;
+  aspect-ratio:4/5;background:#000;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.theme-card.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(109,139,255,.3)}
+.theme-card canvas{width:100%;height:100%;display:block}
+.theme-card .tname{position:absolute;left:0;right:0;bottom:0;padding:16px 8px 7px;font-size:.72rem;
+  font-weight:700;color:#fff;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);text-shadow:0 1px 3px #000}
+.theme-card .tcheck{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;
+  background:var(--accent);color:#fff;display:none;place-items:center;font-size:13px;font-weight:900}
+.theme-card.sel .tcheck{display:grid}
+.theme-card .tbadge{position:absolute;top:6px;left:6px;font-size:.58rem;font-weight:800;padding:2px 7px;
+  border-radius:20px;background:rgba(0,0,0,.55);color:#fff;letter-spacing:.4px}
+
+/* ── SLIDES PREVIEW ── */
+.carousel{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 14px;scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch}
+.carousel::-webkit-scrollbar{height:0}
+.slide{flex:0 0 76%;max-width:300px;scroll-snap-align:center;border-radius:14px;overflow:hidden;
+  background:#000;box-shadow:0 8px 24px rgba(0,0,0,.4);position:relative}
+.slide canvas{width:100%;display:block}
+.slide .snum{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);color:#fff;font-size:.66rem;
+  font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(4px)}
+.slide .sdl{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.92);color:#111;
+  border:0;font-size:.66rem;font-weight:800;padding:5px 10px;border-radius:20px;cursor:pointer}
+
+/* ── EDIT LIST ── */
+.edititem{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:11px}
+.edititem-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.chip{font-size:.62rem;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:.4px}
+.chip.cover{background:rgba(109,139,255,.22);color:#b9c6ff}
+.chip.content{background:rgba(51,217,154,.18);color:#7ff0c4}
+.chip.cta{background:rgba(255,180,84,.2);color:#ffcf94}
+.editrow{margin-bottom:8px}
+.editrow .mini-lbl{font-size:.66rem;color:var(--muted2);font-weight:600;text-transform:uppercase;
+  letter-spacing:.4px;margin-bottom:3px;display:block}
+.editrow input,.editrow textarea{padding:9px 11px;font-size:.85rem;border-radius:10px}
+.editrow textarea{min-height:60px}
+
+/* ── CARDS / PANELS ── */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px;margin-bottom:14px}
+.panel h3{font-size:.95rem;font-weight:800;margin-bottom:4px}
+.panel p{font-size:.8rem;color:var(--muted);line-height:1.55}
+.row{display:flex;gap:9px;flex-wrap:wrap}
+.row>*{flex:1}
+.notice{background:rgba(109,139,255,.1);border:1px solid rgba(109,139,255,.3);border-radius:12px;
+  padding:11px 13px;font-size:.78rem;color:#c3cffb;line-height:1.5;margin-bottom:14px}
+.notice b{color:#fff}
+
+/* palette swatches */
+.pal{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+.sw{width:38px;height:38px;border-radius:9px;border:2px solid var(--line);position:relative;cursor:pointer;overflow:hidden}
+.sw input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* segmented */
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px}
+.seg button{flex:1;background:none;border:0;color:var(--muted);font-size:.76rem;font-weight:700;
+  padding:8px 4px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--accent);color:#fff}
+
+.upzone{border:2px dashed var(--line);border-radius:14px;padding:26px 14px;text-align:center;cursor:pointer;
+  background:var(--card);transition:border .15s,background .15s}
+.upzone:active{border-color:var(--accent);background:var(--card2)}
+.upzone .big{font-size:30px;margin-bottom:6px}
+.upzone .t{font-size:.85rem;font-weight:700}
+.upzone .s{font-size:.72rem;color:var(--muted);margin-top:3px}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.thumbs img{width:60px;height:75px;object-fit:cover;border-radius:9px;border:1px solid var(--line)}
+
+.caption-box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;
+  font-size:.82rem;line-height:1.55;white-space:pre-wrap;color:#dbe2fb;max-height:230px;overflow:auto}
+
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty .big{font-size:44px;margin-bottom:12px;opacity:.7}
+.empty .t{font-size:.95rem;font-weight:700;color:var(--text)}
+.empty .s{font-size:.8rem;margin-top:6px;line-height:1.5}
+
+.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);z-index:99;
+  background:#111827;border:1px solid var(--line);color:#fff;padding:11px 18px;border-radius:30px;
+  font-size:.82rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;
+  transition:.28s;max-width:88%}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.muted-btn{background:none;border:0;color:var(--muted);font-size:.78rem;font-weight:600;cursor:pointer;
+  text-decoration:underline;padding:4px}
+.divider{height:1px;background:var(--line);margin:16px 0}
+.spacer{height:8px}
+.badge-count{font-size:.6rem;background:var(--accent);color:#fff;border-radius:20px;padding:1px 6px;
+  font-weight:800;margin-left:5px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brandrow">
+    <div class="logo">🎠</div>
+    <div style="flex:1">
+      <div class="app-title">Carrossel Studio</div>
+      <div class="app-sub" id="brandSub">Transforme notícias em carrosséis</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ CRIAR ══════════ -->
+<section class="view on" id="v-criar">
+  <div class="section-title">1 · A notícia</div>
+  <label class="fld">
+    <span class="lbl">Título / manchete <span class="sub">— o gancho principal</span></span>
+    <input id="inTitle" placeholder="Ex: Óculos com filtro de luz azul reduzem cansaço visual em 60%">
+  </label>
+  <label class="fld">
+    <span class="lbl">Texto da notícia <span class="sub">— cole o conteúdo, eu divido em slides</span></span>
+    <textarea id="inBody" placeholder="Cole aqui o corpo da notícia. Pode ser o texto completo — eu resumo e distribuo em slides curtos e fáceis de ler."></textarea>
+  </label>
+
+  <div class="section-title">2 · Seu Instagram</div>
+  <label class="fld">
+    <input id="inHandle" placeholder="@suamarca">
+  </label>
+
+  <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+    <span>3 · Estilo (pré-tema)</span>
+    <span class="hint" style="text-transform:none;letter-spacing:0" id="themeCount"></span>
+  </div>
+  <div class="themes" id="themeGrid"></div>
+
+  <div class="spacer"></div>
+  <div class="section-title">4 · Chamada final (CTA)</div>
+  <div class="seg" id="ctaSeg">
+    <button data-cta="share" class="on">📤 Compartilhar</button>
+    <button data-cta="follow">➕ Seguir</button>
+    <button data-cta="save">🔖 Salvar</button>
+  </div>
+  <div class="hint" style="margin:8px 2px 0">O último slide sempre pede a ação e reforça <b>seguir seu @ para mais conteúdos como esse</b>.</div>
+
+  <div class="spacer"></div><div class="spacer"></div>
+  <button class="btn" id="genBtn">✨ Gerar carrossel</button>
+  <div class="spacer"></div>
+  <button class="muted-btn" id="fillExample" style="display:block;margin:0 auto">Preencher com um exemplo</button>
+</section>
+
+<!-- ══════════ RESULTADO ══════════ -->
+<section class="view" id="v-result">
+  <div id="resultEmpty" class="empty">
+    <div class="big">🖼️</div>
+    <div class="t">Nenhum carrossel ainda</div>
+    <div class="s">Vá em <b>Criar</b>, cole a notícia e toque em Gerar.</div>
+  </div>
+  <div id="resultWrap" style="display:none">
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Prévia — arraste ↔</span>
+      <button class="btn mini ghost" id="regenBtn">🎲 Variar</button>
+    </div>
+    <div class="carousel" id="carousel"></div>
+
+    <div class="row">
+      <button class="btn sm" id="dlAll">⬇️ Baixar todos</button>
+      <button class="btn sm ghost" id="copyCap">📝 Copiar legenda</button>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="section-title">Editar textos</div>
+    <div id="editList"></div>
+
+    <div class="section-title">Legenda pronta</div>
+    <div class="caption-box" id="captionBox"></div>
+  </div>
+</section>
+
+<!-- ══════════ TEMAS ══════════ -->
+<section class="view" id="v-temas">
+  <div class="notice">
+    ✨ <b>Adicione pré-temas por inspiração.</b> Suba o print de um carrossel que você curtiu (do Insta de qualquer pessoa) e eu extraio <b>cores, textura, fonte, montagem e quantidade de texto</b> para criar um estilo novo — <b>nunca copiando o conteúdo</b>, só a linguagem visual.
+  </div>
+
+  <div class="panel">
+    <h3>Novo pré-tema por inspiração</h3>
+    <p>Suba de 1 a 3 imagens de referência (screenshots dos slides).</p>
+    <div class="spacer"></div>
+    <div class="upzone" id="upzone">
+      <div class="big">📤</div>
+      <div class="t">Subir imagens de referência</div>
+      <div class="s">Prints de carrosséis que te inspiram</div>
+    </div>
+    <input type="file" id="refFile" accept="image/*" multiple hidden>
+    <div class="thumbs" id="refThumbs"></div>
+  </div>
+
+  <div class="panel" id="refBuilder" style="display:none">
+    <h3>Ajuste o estilo</h3>
+    <label class="fld" style="margin-top:10px">
+      <span class="lbl">Nome do pré-tema</span>
+      <input id="ctName" placeholder="Ex: Editorial suave">
+    </label>
+    <span class="lbl" style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px">Paleta detectada <span class="sub" style="font-size:.72rem;color:var(--muted);font-weight:400">(toque para ajustar)</span></span>
+    <div class="pal" id="ctPalette"></div>
+    <div class="spacer"></div>
+    <span class="lbl" style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px">Fonte do título</span>
+    <div class="seg" id="ctFont">
+      <button data-v="serif" class="on">Serifada</button>
+      <button data-v="sans">Sem serifa</button>
+      <button data-v="heavy">Pesada</button>
+      <button data-v="mono">Mono</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="lbl" style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px">Quantidade de texto</span>
+    <div class="seg" id="ctDensity">
+      <button data-v="low">Pouco</button>
+      <button data-v="medium" class="on">Médio</button>
+      <button data-v="high">Muito</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="lbl" style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px">Montagem</span>
+    <div class="seg" id="ctLayout">
+      <button data-v="top">Topo</button>
+      <button data-v="center" class="on">Centro</button>
+      <button data-v="bottom">Rodapé</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="lbl" style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px">Textura</span>
+    <div class="seg" id="ctTexture">
+      <button data-v="solid" class="on">Sólida</button>
+      <button data-v="gradient">Gradiente</button>
+      <button data-v="pattern">Padrão</button>
+    </div>
+    <div class="spacer"></div><div class="spacer"></div>
+    <button class="btn" id="saveTheme">💾 Salvar pré-tema</button>
+  </div>
+
+  <div class="section-title">Meus pré-temas <span class="badge-count" id="customCount">0</span></div>
+  <div class="themes" id="customGrid"></div>
+  <div id="customEmpty" class="hint" style="text-align:center;padding:14px">Nenhum pré-tema salvo ainda.</div>
+</section>
+
+<!-- ══════════ MARCA ══════════ -->
+<section class="view" id="v-marca">
+  <div class="section-title">Sua identidade</div>
+  <div class="panel">
+    <label class="fld">
+      <span class="lbl">Nome da marca</span>
+      <input id="brName" placeholder="Ex: Óticas Mercadótica">
+    </label>
+    <label class="fld">
+      <span class="lbl">@ do Instagram <span class="sub">(padrão dos carrosséis)</span></span>
+      <input id="brHandle" placeholder="@suamarca">
+    </label>
+    <span class="lbl" style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px">Cores da marca</span>
+    <div class="pal" id="brPalette">
+      <div class="sw" style="background:#6d8bff"><input type="color" value="#6d8bff" data-i="0"></div>
+      <div class="sw" style="background:#9b6dff"><input type="color" value="#9b6dff" data-i="1"></div>
+      <div class="sw" style="background:#f4c430"><input type="color" value="#f4c430" data-i="2"></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="lbl" style="font-size:.8rem;font-weight:600;display:block;margin-bottom:6px">Logo <span class="sub" style="font-weight:400;color:var(--muted)">(opcional, aparece nos slides)</span></span>
+    <div class="upzone" id="logoZone" style="padding:18px">
+      <div class="big" id="logoPreviewWrap">🏷️</div>
+      <div class="t">Subir logo</div>
+      <div class="s">PNG com fundo transparente fica melhor</div>
+    </div>
+    <input type="file" id="logoFile" accept="image/*" hidden>
+    <div class="spacer"></div><div class="spacer"></div>
+    <button class="btn" id="saveBrand">💾 Salvar identidade</button>
+  </div>
+
+  <div class="panel">
+    <h3>Dicas de carrossel que funciona</h3>
+    <p style="line-height:1.7">
+      • <b>Capa</b> = promessa forte + curiosidade (número, "pare de…", "em 5 passos…").<br>
+      • <b>Formato 4:5</b> (1080×1350) ocupa mais tela.<br>
+      • <b>Até ~30 palavras/slide</b>, fonte grande, respiro.<br>
+      • <b>Seta "arrasta →"</b> na capa aumenta a conclusão.<br>
+      • <b>Final que converte</b>: pedir salvar, compartilhar ou seguir.<br>
+      • 8–10 slides costumam ter o maior engajamento.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════ NAV ══════════ -->
+<nav class="nav">
+  <button data-v="criar" class="on"><span class="ic">✏️</span>Criar</button>
+  <button data-v="result"><span class="ic">🖼️</span>Carrossel</button>
+  <button data-v="temas"><span class="ic">🎨</span>Temas</button>
+  <button data-v="marca"><span class="ic">👤</span>Marca</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CARROSSEL STUDIO — gerador de carrosséis a partir de notícias
+   100% no dispositivo, offline, sem servidor.
+   ═══════════════════════════════════════════════════════════ */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const W=1080, H=1350;           // formato 4:5 do Instagram
+const store={
+  brand:load('cs_brand',{name:'',handle:'@suamarca',colors:['#6d8bff','#9b6dff','#f4c430'],logo:''}),
+  custom:load('cs_custom',[]),
+};
+function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v==null?def:v}catch(e){return def}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200)}
+
+/* ── FONTES (todas nativas, renderizam offline no canvas) ── */
+const FONTS={
+  serif:{h:'Georgia,"Times New Roman",serif', b:'Georgia,serif'},
+  sans:{h:'"Helvetica Neue",Arial,sans-serif', b:'"Helvetica Neue",Arial,sans-serif'},
+  heavy:{h:'Impact,"Arial Black",sans-serif', b:'"Helvetica Neue",Arial,sans-serif'},
+  mono:{h:'"Courier New",monospace', b:'"Courier New",monospace'},
+};
+
+/* ═══════════ TEMAS EMBUTIDOS ═══════════ */
+/* Pré-temas de referência: inspirados na linguagem visual (cores, fonte,
+   textura, montagem, densidade) de carrosséis enviados — nunca no conteúdo. */
+const THEMES=[
+  {id:'ref_mercadotica',name:'Mercadótica',badge:'REF 4',
+   bg:{type:'solid',colors:['#0a0a0c']}, ink:'#f5f2ea', accent:'#e6c869', muted:'#b9b3a4',
+   font:'serif', headTransform:'none', layout:'center', density:'medium', deco:'line', card:false, counterTop:true},
+  {id:'ref_perini',name:'Autoridade',badge:'REF 1',
+   bg:{type:'solid',colors:['#ffffff']}, ink:'#16181c', accent:'#e8512a', muted:'#8a9099',
+   font:'sans', headTransform:'none', layout:'top', density:'high', deco:'rule', card:false, counterTop:true},
+  {id:'ref_cinema',name:'Cinema',badge:'REF 2',
+   bg:{type:'gradient',colors:['#241a0c','#08080a']}, ink:'#ffffff', accent:'#f5c542', muted:'#c9b892',
+   font:'heavy', headTransform:'upper', layout:'bottom', density:'low', deco:'soft', card:false, counterTop:true},
+  {id:'ref_sabedoria',name:'Sábio',badge:'REF 3',
+   bg:{type:'solid',colors:['#060606']}, ink:'#ffffff', accent:'#efefef', muted:'#9a9a9a',
+   font:'sans', headTransform:'none', layout:'top', density:'high', deco:'none', card:false, counterTop:true},
+  {id:'ref_papel',name:'Papel',badge:'REF 5',
+   bg:{type:'solid',colors:['#eae8e2']}, ink:'#1b1b1b', accent:'#e5322b', muted:'#707070',
+   font:'heavy', headTransform:'none', layout:'center', density:'low', deco:'noise', card:false, counterTop:true},
+  {id:'editorial',name:'Editorial',badge:'CLEAN',
+   bg:{type:'solid',colors:['#f7f5f0']}, ink:'#141414', accent:'#d92646', muted:'#6a6a6a',
+   font:'serif', headTransform:'none', layout:'top', density:'medium', deco:'rule', card:false},
+  {id:'neon',name:'Neon Bold',badge:'POP',
+   bg:{type:'gradient',colors:['#0b0f1e','#161d3a']}, ink:'#ffffff', accent:'#3ee0ff', muted:'#9fb0d8',
+   font:'heavy', headTransform:'upper', layout:'center', density:'low', deco:'rays', card:false},
+  {id:'urgente',name:'Notícia',badge:'NEWS',
+   bg:{type:'solid',colors:['#f3f1ea']}, ink:'#181818', accent:'#cc0000', muted:'#555555',
+   font:'serif', headTransform:'none', layout:'top', density:'medium', deco:'banner', card:false},
+  {id:'optica',name:'Premium',badge:'MARCA',
+   bg:{type:'gradient',colors:['#0e3b3d','#14595e']}, ink:'#ffffff', accent:'#f4c430', muted:'#bfe0dd',
+   font:'sans', headTransform:'none', layout:'center', density:'medium', deco:'soft', card:true},
+  {id:'gradient',name:'Gradiente',badge:'VIVO',
+   bg:{type:'gradient',colors:['#7b4bff','#ff5f8f']}, ink:'#ffffff', accent:'#ffe45e', muted:'#f2e4ff',
+   font:'heavy', headTransform:'none', layout:'center', density:'low', deco:'blobs', card:true},
+  {id:'darkgold',name:'Dark Gold',badge:'LUXO',
+   bg:{type:'solid',colors:['#0c0c0c']}, ink:'#f5f2e8', accent:'#d4af37', muted:'#9a927e',
+   font:'serif', headTransform:'none', layout:'center', density:'medium', deco:'line', card:false},
+  {id:'mono',name:'Minimal',badge:'TECH',
+   bg:{type:'solid',colors:['#eceae3']}, ink:'#1b1b1b', accent:'#ff5722', muted:'#666666',
+   font:'mono', headTransform:'upper', layout:'top', density:'low', deco:'grid', card:false},
+];
+
+/* ═══════════ DETECÇÃO DE TEMA DA NOTÍCIA (imagem por tema) ═══════════ */
+const CATS=[
+  {k:['saúde','saude','hospital','médic','medic','vacina','doença','doenca','covid','remédio','remedio','câncer','cancer','clínica','clinica'],emoji:'🩺',name:'saúde'},
+  {k:['tecnolog','intelig','robô','robo',' ia ','app ','aplicativo','smartphone','celular','google','apple','chip','digital','software','internet','startup'],emoji:'💻',name:'tecnologia'},
+  {k:['econom','dólar','dolar','real ','mercado','inflação','inflacao','juros','bolsa','preço','preco','pib','financ','banco','imposto','salário','salario'],emoji:'📈',name:'economia'},
+  {k:['jogo','gol','campeonato','futebol','atleta','copa','time ','esporte','olimp','partida','seleção','selecao'],emoji:'⚽',name:'esporte'},
+  {k:['governo','presidente','congresso',' lei ','eleição','eleicao','ministro','política','politica','senado','câmara','camara','stf'],emoji:'🏛️',name:'política'},
+  {k:['clima','chuva','temperatura','calor','frio','tempo ','meio ambiente','sustentab','poluição','poluicao','floresta','ambiental'],emoji:'🌍',name:'meio ambiente'},
+  {k:['óculos','oculos','lente','visão','visao','grau','miopia','oftalm','moda','estilo','armação','armacao'],emoji:'🕶️',name:'visão & estilo'},
+  {k:['filme','série','serie','música','musica','show','artista','novela','cinema','netflix','ator','atriz','celebridade'],emoji:'🎬',name:'entretenimento'},
+  {k:['educa','escola','ensino','professor','aluno','universidade','estudo','pesquisa','ciência','ciencia'],emoji:'📚',name:'educação'},
+  {k:['viagem','turismo','viaj','destino','hotel','praia','avião','aviao','passagem'],emoji:'✈️',name:'viagem'},
+];
+function detectCat(txt){
+  const t=(' '+txt+' ').toLowerCase();
+  let best=null,score=0;
+  for(const c of CATS){let s=0;for(const w of c.k){if(t.includes(w))s++}if(s>score){score=s;best=c}}
+  return best||{emoji:'📰',name:'notícia'};
+}
+
+/* ═══════════ QUEBRA DA NOTÍCIA EM SLIDES ═══════════ */
+function buildSlides(title,body,theme,ctaType,handle,cat){
+  const dens={low:26,medium:38,high:52}[theme.density]||38;
+  const maxContent={low:4,medium:6,high:7}[theme.density]||6;
+  let clean=body.replace(/\s+/g,' ').trim();
+  let sentences=clean.split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(s=>s.length>3);
+  if(!sentences.length&&title) sentences=[title];
+  const blocks=[];let cur='';
+  for(const s of sentences){
+    const test=(cur?cur+' ':'')+s;
+    if(wordCount(test)>dens && cur){blocks.push(cur);cur=s;}
+    else cur=test;
+    if(blocks.length>=maxContent) break;
+  }
+  if(cur&&blocks.length<maxContent) blocks.push(cur);
+  const kickers=['O QUE ACONTECEU','POR QUE IMPORTA','O DETALHE','NA PRÁTICA','O QUE VEM','ATENÇÃO','O PONTO-CHAVE','ENTENDA'];
+  const slides=[{type:'cover',kicker:cat.name.toUpperCase(),title:makeHook(title),body:'',emoji:cat.emoji}];
+  blocks.forEach((b,i)=>{
+    slides.push({type:'content',kicker:kickers[i%kickers.length],title:'',body:b.length>210?b.slice(0,207)+'…':b,emoji:cat.emoji});
+  });
+  slides.push(ctaSlide(ctaType,handle,cat));
+  return slides;
+}
+function wordCount(s){return s.trim().split(/\s+/).filter(Boolean).length}
+function makeHook(title){
+  let t=(title||'').trim();
+  if(!t) return 'VOCÊ PRECISA VER ISSO';
+  if(t.length>90) t=t.slice(0,88)+'…';
+  return t;
+}
+function ctaSlide(type,handle,cat){
+  const h=handle||'@suamarca';
+  const map={
+    share:{title:'Gostou? Compartilha!',body:'Manda essa notícia pra alguém que precisa ver 📤\n\nE segue '+h+' pra mais conteúdos como esse.',kicker:'ESPALHE A NOTÍCIA'},
+    follow:{title:'Segue a '+h,body:'Todo dia notícia explicada de forma rápida e fácil.\n\nAtiva o 🔔 pra não perder nada!',kicker:'MAIS CONTEÚDOS ASSIM'},
+    save:{title:'Salva pra depois 🔖',body:'Guarda esse carrossel pra reler quando quiser.\n\nE compartilha com quem precisa. Siga '+h+'!',kicker:'NÃO PERCA'},
+  };
+  const c=map[type]||map.share;
+  return {type:'cta',title:c.title,body:c.body,kicker:c.kicker,emoji:cat.emoji,handle:h};
+}
+
+/* ═══════════ RENDER DE UM SLIDE NO CANVAS ═══════════ */
+function renderSlide(cv,slide,theme,ctx2){
+  cv.width=W;cv.height=H;
+  const g=ctx2||cv.getContext('2d');
+  const hasPhoto=slide.photoImg&&slide.photoImg.complete&&slide.photoImg.naturalWidth;
+  // tema efetivo: com foto, texto vira branco sobre escurecimento
+  const th=hasPhoto?Object.assign({},theme,{ink:'#ffffff',muted:'#e6e6e6',card:false}):theme;
+  const F=FONTS[th.font]||FONTS.sans;
+  const pad=96;
+
+  paintBg(g,theme);
+  if(hasPhoto){drawPhoto(g,slide.photoImg);} else {paintDeco(g,theme,slide);}
+  const light=hasPhoto?true:!isLight(theme.bg.colors[0]); // texto claro?
+  const layout=hasPhoto?'bottom':th.layout;
+
+  drawTopBar(g,th,slide);
+  if(!hasPhoto) drawThemeArt(g,theme,slide);
+
+  const contentBlocks=[];
+  if(slide.type==='cover'){
+    contentBlocks.push({t:slide.kicker,role:'kicker'});
+    contentBlocks.push({t:slide.title,role:'headline'});
+  } else if(slide.type==='cta'){
+    contentBlocks.push({t:slide.kicker,role:'kicker'});
+    contentBlocks.push({t:slide.title,role:'headline'});
+    contentBlocks.push({t:slide.body,role:'body'});
+  } else {
+    contentBlocks.push({t:slide.kicker,role:'kicker'});
+    contentBlocks.push({t:slide.body,role:'body'});
+  }
+
+  g.textBaseline='top';
+  const measured=measureBlocks(g,contentBlocks,th,F,W-pad*2,slide);
+  const totalH=measured.total;
+  const areaTop=210, areaBot=H-200;
+  let ty;
+  if(layout==='top') ty=areaTop;
+  else if(layout==='bottom') ty=Math.max(areaTop,areaBot-totalH);
+  else ty=Math.max(areaTop, (H-totalH)/2);
+
+  // escurecimento sob o texto quando há foto
+  if(hasPhoto){
+    const gr=g.createLinearGradient(0,ty-120,0,H);
+    gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.35,'rgba(0,0,0,.55)');gr.addColorStop(1,'rgba(0,0,0,.9)');
+    g.fillStyle=gr;g.fillRect(0,ty-160,W,H-(ty-160));
+  } else if(th.card){
+    const cx=pad-34, cw=W-(pad-34)*2, cy=ty-40, ch=totalH+80;
+    g.fillStyle=light?'rgba(255,255,255,.10)':'rgba(0,0,0,.12)';
+    roundRect(g,cx,cy,cw,ch,34);g.fill();
+  }
+
+  const centered=(slide.type!=='content');
+  let y=ty;
+  for(const m of measured.items){
+    if(m.role==='kicker'){
+      g.fillStyle=th.accent;
+      g.font='800 '+m.fs+'px '+F.b;
+      g.textAlign=centered?'center':'left';
+      const kx=centered?W/2:pad;
+      g.fillText(m.lines[0].toUpperCase(),kx,y);
+      const kw=Math.min(g.measureText(m.lines[0].toUpperCase()).width,300);
+      g.fillRect(centered?W/2-kw/2:pad,y+m.fs+14,kw,4);
+      y+=m.h;
+    } else if(m.role==='headline'){
+      g.fillStyle=th.ink;
+      g.textAlign=centered?'center':'left';
+      g.font='900 '+m.fs+'px '+F.h;
+      const hx=centered?W/2:pad;
+      for(const ln of m.lines){g.fillText(th.headTransform==='upper'?ln.toUpperCase():ln,hx,y);y+=m.fs*1.12;}
+      y+=16;
+    } else if(m.role==='body'){
+      g.fillStyle=slide.type==='content'?th.ink:(light?'#e9edff':'#3a3a3a');
+      g.textAlign=centered?'center':'left';
+      g.font='500 '+m.fs+'px '+F.b;
+      const bx=centered?W/2:pad;
+      for(const ln of m.lines){g.fillText(ln,bx,y);y+=m.fs*1.42;}
+    }
+  }
+  drawFooter(g,th,slide);
+  if(th.counterTop||hasPhoto) drawCounterPill(g,slide);
+}
+function drawPhoto(g,img){
+  // cobre o canvas mantendo proporção (object-fit: cover)
+  const ir=img.naturalWidth/img.naturalHeight, cr=W/H;
+  let dw,dh,dx,dy;
+  if(ir>cr){dh=H;dw=H*ir;dx=(W-dw)/2;dy=0;} else {dw=W;dh=W/ir;dx=0;dy=(H-dh)/2;}
+  try{g.drawImage(img,dx,dy,dw,dh);}catch(e){}
+  g.fillStyle='rgba(0,0,0,.18)';g.fillRect(0,0,W,H); // leve uniformização
+}
+function drawCounterPill(g,slide){
+  g.save();g.textBaseline='middle';g.textAlign='center';
+  const total=CUR.slides.length, idx=CUR.slides.indexOf(slide)+1;
+  const txt=idx+'/'+total;
+  g.font='700 30px "Helvetica Neue",Arial,sans-serif';
+  const w=g.measureText(txt).width+46, x=W-w-40, yy=54, h=52;
+  g.fillStyle='rgba(30,30,30,.72)';roundRect(g,x,yy,w,h,26);g.fill();
+  g.fillStyle='#ffffff';g.fillText(txt,x+w/2,yy+h/2+1);
+  g.restore();
+}
+
+function measureBlocks(g,blocks,theme,F,maxW,slide){
+  const items=[];let total=0;
+  for(const b of blocks){
+    if(!b.t) continue;
+    if(b.role==='kicker'){
+      const fs=34;g.font='800 '+fs+'px '+F.b;
+      items.push({role:'kicker',lines:[b.t],fs,h:fs+70});total+=fs+70;
+    } else if(b.role==='headline'){
+      let fs=b.t.length>60?74:b.t.length>34?92:112;
+      g.font='900 '+fs+'px '+F.h;
+      const lines=wrap(g,theme.headTransform==='upper'?b.t.toUpperCase():b.t,maxW);
+      const h=lines.length*fs*1.12+16;
+      items.push({role:'headline',lines,fs,h});total+=h;
+    } else {
+      let fs=b.t.length>170?42:48;
+      g.font='500 '+fs+'px '+F.b;
+      let lines=[];
+      for(const para of b.t.split('\n')){lines=lines.concat(para?wrap(g,para,maxW):[' '])}
+      const h=lines.length*fs*1.42;
+      items.push({role:'body',lines,fs,h});total+=h;
+    }
+  }
+  return {items,total};
+}
+function wrap(g,text,maxW){
+  const words=text.split(' ');const lines=[];let line='';
+  for(const w of words){
+    const test=line?line+' '+w:w;
+    if(g.measureText(test).width>maxW&&line){lines.push(line);line=w;}
+    else line=test;
+  }
+  if(line)lines.push(line);
+  return lines;
+}
+
+/* ── pintura de fundo ── */
+function paintBg(g,theme){
+  if(theme.bg.type==='gradient'){
+    const gr=g.createLinearGradient(0,0,W,H);
+    gr.addColorStop(0,theme.bg.colors[0]);gr.addColorStop(1,theme.bg.colors[1]||theme.bg.colors[0]);
+    g.fillStyle=gr;
+  } else g.fillStyle=theme.bg.colors[0];
+  g.fillRect(0,0,W,H);
+}
+function paintDeco(g,theme,slide){
+  const a=theme.accent;
+  g.save();
+  if(theme.deco==='rays'){
+    g.globalAlpha=.13;g.strokeStyle=a;g.lineWidth=3;
+    for(let i=-2;i<12;i++){g.beginPath();g.moveTo(W,-100+i*160);g.lineTo(W-700,-400+i*160);g.stroke();}
+  } else if(theme.deco==='blobs'){
+    for(const b of [[W*.85,H*.16,260,'#ffffff'],[W*.12,H*.84,300,a],[W*.9,H*.92,180,'#ffffff']]){
+      g.globalAlpha=.16;g.fillStyle=b[3];g.beginPath();g.arc(b[0],b[1],b[2],0,7);g.fill();
+    }
+  } else if(theme.deco==='grid'){
+    g.globalAlpha=.08;g.strokeStyle=theme.ink;g.lineWidth=2;
+    for(let x=0;x<=W;x+=90){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke();}
+    for(let y=0;y<=H;y+=90){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke();}
+  } else if(theme.deco==='banner'){
+    g.fillStyle=a;g.fillRect(0,0,W,14);g.fillRect(0,H-14,W,14);
+  } else if(theme.deco==='line'){
+    g.globalAlpha=.5;g.strokeStyle=a;g.lineWidth=2;g.strokeRect(46,46,W-92,H-92);
+  } else if(theme.deco==='rule'){
+    g.fillStyle=a;g.fillRect(96,168,110,7);
+  } else if(theme.deco==='soft'){
+    g.globalAlpha=.10;g.fillStyle='#ffffff';
+    g.beginPath();g.arc(W*.95,H*.08,340,0,7);g.fill();
+    g.beginPath();g.arc(W*.05,H*.95,300,0,7);g.fill();
+  } else if(theme.deco==='noise'){
+    // textura de papel: pontilhado leve determinístico
+    g.globalAlpha=1;const dark=isLight(theme.bg.colors[0]);
+    let s=98765;const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+    for(let i=0;i<2600;i++){
+      g.fillStyle=dark?'rgba(0,0,0,'+(rnd()*.05).toFixed(3)+')':'rgba(255,255,255,'+(rnd()*.05).toFixed(3)+')';
+      g.fillRect(rnd()*W,rnd()*H,2,2);
+    }
+  }
+  g.restore();
+}
+function drawThemeArt(g,theme,slide){
+  g.save();
+  g.globalAlpha=slide.type==='content'?.10:.13;
+  g.font='400 '+(slide.type==='cover'?500:340)+'px system-ui,"Segoe UI Emoji","Apple Color Emoji",sans-serif';
+  g.textAlign='center';g.textBaseline='middle';
+  const x=slide.type==='content'?W*.82:W*.5;
+  const y=slide.type==='content'?H*.22:slide.type==='cta'?H*.28:H*.70;
+  g.fillText(slide.emoji,x,y);
+  g.restore();
+}
+function drawTopBar(g,theme,slide){
+  g.save();g.textBaseline='alphabetic';
+  const h=(CUR.handle||store.brand.handle||'@suamarca');
+  if(store.brand.logo&&brandLogoImg&&brandLogoImg.complete&&brandLogoImg.naturalWidth){
+    const s=72;try{g.drawImage(brandLogoImg,86,64,s,s)}catch(e){}
+    g.fillStyle=theme.ink;g.font='700 34px '+FONTS[theme.font].b;g.textAlign='left';
+    g.fillText(h,86+s+18,64+s*.66);
+  } else {
+    g.fillStyle=theme.accent;g.beginPath();g.arc(112,100,30,0,7);g.fill();
+    g.fillStyle=isLight(theme.bg.colors[0])?'#fff':theme.bg.colors[0];
+    g.font='800 30px '+FONTS[theme.font].b;g.textAlign='center';g.textBaseline='middle';
+    g.fillText((store.brand.name||'C')[0].toUpperCase(),112,102);
+    g.textBaseline='alphabetic';g.textAlign='left';
+    g.fillStyle=theme.ink;g.font='700 34px '+FONTS[theme.font].b;
+    g.fillText(h,156,112);
+  }
+  g.restore();
+}
+function drawFooter(g,theme,slide){
+  g.save();g.textBaseline='alphabetic';
+  const total=CUR.slides.length, idx=CUR.slides.indexOf(slide)+1;
+  if(!theme.counterTop){
+    g.fillStyle=theme.muted;g.font='600 28px '+FONTS[theme.font].b;g.textAlign='left';
+    g.fillText(idx+' / '+total,96,H-92);
+  }
+  g.fillStyle=theme.accent;g.font='800 30px '+FONTS[theme.font].b;g.textAlign='right';
+  if(slide.type==='cover') g.fillText('arrasta  →',W-96,H-92);
+  else if(slide.type==='cta') g.fillText(slide.handle||store.brand.handle||'',W-96,H-92);
+  else g.fillText('→',W-96,H-90);
+  g.restore();
+}
+
+/* ── util cores ── */
+function isLight(hex){
+  const c=(hex||'#000').replace('#','');const r=parseInt(c.substr(0,2),16),gg=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);
+  return (0.299*r+0.587*gg+0.114*b)>150;
+}
+function roundRect(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+
+let brandLogoImg=null;
+
+/* ═══════════ ESTADO ATUAL ═══════════ */
+let CUR={slides:[],theme:null,cat:null,handle:'',cta:'share',title:'',body:''};
+let selThemeId='ref_mercadotica';
+let selCta='share';
+
+/* ═══════════ PICKER DE TEMAS ═══════════ */
+function allThemes(){return [...THEMES, ...store.custom]}
+function renderThemeGrid(){
+  const grid=$('#themeGrid');grid.innerHTML='';
+  const list=allThemes();
+  $('#themeCount').textContent=list.length+' estilos';
+  list.forEach(t=>{
+    const d=document.createElement('div');
+    d.className='theme-card'+(t.id===selThemeId?' sel':'');
+    d.innerHTML='<canvas></canvas><div class="tbadge">'+(t.badge||'MEU')+'</div><div class="tcheck">✓</div><div class="tname">'+t.name+'</div>';
+    grid.appendChild(d);
+    thumbRender(d.querySelector('canvas'),t);
+    d.onclick=()=>{selThemeId=t.id;renderThemeGrid();if(CUR.slides.length)regen();};
+  });
+}
+function thumbRender(cv,theme){
+  const demo={type:'cover',kicker:theme.name.toUpperCase(),title:'Sua manchete em destaque aqui',body:'',emoji:'📰'};
+  const tmp=document.createElement('canvas');
+  const savedCUR=CUR;CUR={slides:[demo]};
+  renderSlide(tmp,demo,theme);
+  CUR=savedCUR;
+  const g=cv.getContext('2d');cv.width=W;cv.height=H;g.drawImage(tmp,0,0);
+}
+
+/* ═══════════ GERAR ═══════════ */
+function generate(){
+  const title=$('#inTitle').value.trim();
+  const body=$('#inBody').value.trim();
+  if(!title&&!body){toast('Cole o título ou o texto da notícia');return;}
+  const handle=($('#inHandle').value.trim()||store.brand.handle||'@suamarca');
+  const theme=allThemes().find(t=>t.id===selThemeId)||THEMES[0];
+  const cat=detectCat(title+' '+body);
+  const slides=buildSlides(title,body,theme,selCta,handle,cat);
+  CUR={slides,theme,cat,handle,cta:selCta,title,body};
+  renderResult();
+  switchView('result');
+  toast('Carrossel de '+slides.length+' slides gerado ✨');
+}
+function regen(){
+  if(!CUR.slides.length) return;
+  const theme=allThemes().find(t=>t.id===selThemeId)||THEMES[0];
+  CUR.theme=theme;CUR.cta=selCta;
+  const photos=CUR.slides.map(s=>s.photoImg);
+  CUR.slides=buildSlides(CUR.title,CUR.body,theme,selCta,CUR.handle,CUR.cat);
+  CUR.slides.forEach((s,i)=>{if(photos[i])s.photoImg=photos[i];});
+  renderResult();
+}
+
+function renderResult(){
+  $('#resultEmpty').style.display='none';
+  $('#resultWrap').style.display='block';
+  const car=$('#carousel');car.innerHTML='';
+  CUR.slides.forEach((s,i)=>{
+    const wrap=document.createElement('div');wrap.className='slide';
+    const cv=document.createElement('canvas');
+    renderSlide(cv,s,CUR.theme);
+    wrap.appendChild(cv);
+    wrap.insertAdjacentHTML('beforeend','<div class="snum">'+(i+1)+'/'+CUR.slides.length+'</div><button class="sdl">⬇️ PNG</button>');
+    wrap.querySelector('.sdl').onclick=()=>downloadSlide(i);
+    car.appendChild(wrap);
+  });
+  renderEditList();
+  $('#captionBox').textContent=buildCaption();
+}
+function renderEditList(){
+  const el=$('#editList');el.innerHTML='';
+  CUR.slides.forEach((s,i)=>{
+    const chip=s.type==='cover'?'<span class="chip cover">CAPA</span>':s.type==='cta'?'<span class="chip cta">CTA</span>':'<span class="chip content">SLIDE '+i+'</span>';
+    const d=document.createElement('div');d.className='edititem';
+    let rows='';
+    rows+=editRow('Selo',s.kicker||'','k'+i);
+    if(s.type!=='content') rows+=editRow('Título',s.title||'','t'+i);
+    if(s.type!=='cover') rows+=editRow('Texto',s.body||'','b'+i,true);
+    const hasP=!!s.photoImg;
+    rows+='<div class="editrow" style="display:flex;gap:8px;align-items:center">'+
+      '<button class="btn mini ghost" data-photo="'+i+'">📷 '+(hasP?'Trocar foto':'Foto de fundo')+'</button>'+
+      (hasP?'<button class="btn mini ghost" data-rmphoto="'+i+'" style="color:var(--bad)">Remover</button>':'')+
+      '<input type="file" accept="image/*" data-pfile="'+i+'" hidden></div>';
+    d.innerHTML='<div class="edititem-head">'+chip+'</div>'+rows;
+    el.appendChild(d);
+  });
+  $$('#editList [data-edit]').forEach(inp=>{
+    inp.oninput=()=>{
+      const key=inp.dataset.edit;const i=+key.slice(1);const f=key[0];
+      const s=CUR.slides[i];
+      if(f==='k')s.kicker=inp.value;else if(f==='t')s.title=inp.value;else s.body=inp.value;
+      reRenderSlide(i);
+      $('#captionBox').textContent=buildCaption();
+    };
+  });
+  $$('#editList [data-photo]').forEach(b=>b.onclick=()=>$('#editList [data-pfile="'+b.dataset.photo+'"]').click());
+  $$('#editList [data-pfile]').forEach(inp=>inp.onchange=e=>{
+    const i=+inp.dataset.pfile, f=e.target.files[0];if(!f)return;
+    const img=new Image();img.onload=()=>{CUR.slides[i].photoImg=img;reRenderSlide(i);renderEditList();toast('Foto aplicada ao slide '+(i+1));};
+    img.src=URL.createObjectURL(f);
+  });
+  $$('#editList [data-rmphoto]').forEach(b=>b.onclick=()=>{const i=+b.dataset.rmphoto;delete CUR.slides[i].photoImg;reRenderSlide(i);renderEditList();});
+}
+function reRenderSlide(i){const cv=$$('#carousel .slide canvas')[i];if(cv)renderSlide(cv,CUR.slides[i],CUR.theme);}
+function editRow(lbl,val,key,area){
+  const el=area?'<textarea data-edit="'+key+'">'+esc(val)+'</textarea>':'<input data-edit="'+key+'" value="'+esc(val)+'">';
+  return '<div class="editrow"><span class="mini-lbl">'+lbl+'</span>'+el+'</div>';
+}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+
+/* ═══════════ LEGENDA ═══════════ */
+function buildCaption(){
+  const s=CUR.slides;if(!s.length)return'';
+  const first=s[0].title;
+  const summary=s.filter(x=>x.type==='content').map(x=>'• '+x.body.split('\n')[0]).slice(0,3).join('\n');
+  const tags=hashtags(CUR.cat,CUR.title+' '+CUR.body);
+  const h=CUR.handle;
+  const ctaLine={
+    share:'📤 Compartilha com quem precisa ver e segue '+h+' pra mais!',
+    follow:'➕ Segue '+h+' pra mais notícias explicadas assim!',
+    save:'🔖 Salva esse post e segue '+h+' pra não perder nada!',
+  }[CUR.cta];
+  return first+'\n\n'+summary+'\n\n'+ctaLine+'\n\n'+tags;
+}
+function hashtags(cat,txt){
+  const base=['#noticias','#voceprecisaver','#fiquepordentro'];
+  const byCat={
+    'saúde':['#saude','#bemestar','#dicasdesaude'],'tecnologia':['#tecnologia','#inovacao','#tech'],
+    'economia':['#economia','#financas','#dinheiro'],'esporte':['#esporte','#futebol'],
+    'política':['#politica','#brasil'],'meio ambiente':['#meioambiente','#sustentabilidade'],
+    'visão & estilo':['#oculos','#saudevisual','#estilo','#otica'],'entretenimento':['#entretenimento','#cultura'],
+    'educação':['#educacao','#conhecimento'],'viagem':['#viagem','#turismo'],'notícia':['#atualidades']
+  };
+  return [...(byCat[cat.name]||[]),...base].slice(0,8).join(' ');
+}
+
+/* ═══════════ EXPORT ═══════════ */
+function slideBlob(i){return new Promise(res=>{
+  const cv=document.createElement('canvas');renderSlide(cv,CUR.slides[i],CUR.theme);
+  cv.toBlob(b=>res(b),'image/png');
+});}
+async function downloadSlide(i){
+  const b=await slideBlob(i);dl(b,'carrossel-'+String(i+1).padStart(2,'0')+'.png');
+  toast('Slide '+(i+1)+' baixado');
+}
+async function downloadAll(){
+  toast('Gerando imagens…');
+  for(let i=0;i<CUR.slides.length;i++){
+    const b=await slideBlob(i);dl(b,'carrossel-'+String(i+1).padStart(2,'0')+'.png');
+    await new Promise(r=>setTimeout(r,350));
+  }
+  toast('Todos os slides baixados ✅');
+}
+function dl(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+
+/* ═══════════ ADD PRÉ-TEMA (inspiração) ═══════════ */
+let refImgs=[], ctState={palette:['#222831','#eeeeee','#00adb5'],font:'serif',density:'medium',layout:'center',texture:'solid'};
+function handleRefFiles(files){
+  const arr=[...files].slice(0,3);
+  if(!arr.length)return;
+  refImgs=[];const th=$('#refThumbs');th.innerHTML='';
+  let done=0;const palettes=[];
+  arr.forEach(f=>{
+    const img=new Image();
+    img.onload=()=>{
+      refImgs.push(img);
+      const im=document.createElement('img');im.src=img.src;th.appendChild(im);
+      palettes.push(...extractPalette(img));
+      if(++done===arr.length){
+        ctState.palette=topColors(palettes,3);
+        $('#refBuilder').style.display='block';
+        renderCtPalette();
+        $('#ctName').value='Pré-tema '+(store.custom.length+1);
+      }
+    };
+    img.onerror=()=>{if(++done===arr.length&&palettes.length){ctState.palette=topColors(palettes,3);$('#refBuilder').style.display='block';renderCtPalette();}};
+    img.src=URL.createObjectURL(f);
+  });
+}
+function extractPalette(img){
+  const c=document.createElement('canvas');const s=60;c.width=s;c.height=s;
+  const g=c.getContext('2d');g.drawImage(img,0,0,s,s);
+  let d;try{d=g.getImageData(0,0,s,s).data}catch(e){return[]}
+  const buckets={};
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i],gg=d[i+1],b=d[i+2],a=d[i+3];if(a<128)continue;
+    const key=(r>>5)+','+(gg>>5)+','+(b>>5);
+    if(!buckets[key])buckets[key]={r:0,g:0,b:0,n:0};
+    const bk=buckets[key];bk.r+=r;bk.g+=gg;bk.b+=b;bk.n++;
+  }
+  return Object.values(buckets).sort((a,b)=>b.n-a.n).slice(0,8)
+    .map(bk=>rgb2hex(bk.r/bk.n,bk.g/bk.n,bk.b/bk.n));
+}
+function topColors(list,n){
+  const uniq=[...new Set(list)];
+  if(!uniq.length) return ['#222831','#eeeeee','#00adb5'];
+  uniq.sort((a,b)=>lum(a)-lum(b));
+  const dark=uniq[0], lightc=uniq[uniq.length-1];
+  const sat=uniq.slice().sort((a,b)=>satur(b)-satur(a))[0];
+  return [...new Set([dark,lightc,sat])].slice(0,3);
+}
+function rgb2hex(r,g,b){return '#'+[r,g,b].map(x=>Math.round(x).toString(16).padStart(2,'0')).join('')}
+function lum(hex){const c=hex.replace('#','');return 0.299*parseInt(c.substr(0,2),16)+0.587*parseInt(c.substr(2,2),16)+0.114*parseInt(c.substr(4,2),16)}
+function satur(hex){const c=hex.replace('#','');const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const mx=Math.max(r,g,b),mn=Math.min(r,g,b);return mx===0?0:(mx-mn)/mx}
+function renderCtPalette(){
+  const p=$('#ctPalette');p.innerHTML='';
+  ctState.palette.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='sw';d.style.background=c;
+    d.innerHTML='<input type="color" value="'+c+'">';
+    d.querySelector('input').oninput=e=>{ctState.palette[i]=e.target.value;d.style.background=e.target.value;};
+    p.appendChild(d);
+  });
+}
+function buildCustomTheme(){
+  const pal=ctState.palette.slice().sort((a,b)=>lum(a)-lum(b));
+  const dark=pal[0], light=pal[pal.length-1];
+  const accent=pal.slice().sort((a,b)=>satur(b)-satur(a))[0]||pal[1]||dark;
+  const useLightBg=lum(light)>150;
+  const bgCol=useLightBg?light:dark;
+  const inkCol=isLight(bgCol)?'#141414':'#ffffff';
+  return {
+    id:'ct_'+Date.now(),
+    name:$('#ctName').value.trim()||'Meu pré-tema',
+    badge:'MEU',
+    bg:{type:ctState.texture==='gradient'?'gradient':'solid',colors:ctState.texture==='gradient'?[bgCol,accent]:[bgCol]},
+    ink:inkCol, accent:accent, muted:isLight(bgCol)?'#555555':'#c9d2ee',
+    font:ctState.font, headTransform:'none', layout:ctState.layout, density:ctState.density,
+    deco:ctState.texture==='pattern'?'grid':(ctState.texture==='gradient'?'blobs':'rule'),
+    card:ctState.texture!=='solid'
+  };
+}
+function saveCustomTheme(){
+  const t=buildCustomTheme();
+  store.custom.push(t);save('cs_custom',store.custom);
+  refImgs=[];$('#refThumbs').innerHTML='';$('#refBuilder').style.display='none';
+  renderCustomGrid();renderThemeGrid();
+  selThemeId=t.id;
+  toast('Pré-tema salvo! Já aparece em Criar 🎨');
+}
+function renderCustomGrid(){
+  const grid=$('#customGrid');grid.innerHTML='';
+  $('#customCount').textContent=store.custom.length;
+  $('#customEmpty').style.display=store.custom.length?'none':'block';
+  store.custom.forEach(t=>{
+    const d=document.createElement('div');d.className='theme-card';
+    d.innerHTML='<canvas></canvas><div class="tbadge">MEU</div><div class="tname">'+t.name+'</div>'+
+      '<button class="delbtn" style="position:absolute;bottom:6px;right:6px;background:rgba(255,80,90,.92);color:#fff;border:0;border-radius:20px;font-size:.62rem;font-weight:800;padding:4px 9px;cursor:pointer">excluir</button>';
+    grid.appendChild(d);thumbRender(d.querySelector('canvas'),t);
+    d.querySelector('.delbtn').onclick=(e)=>{e.stopPropagation();store.custom=store.custom.filter(x=>x.id!==t.id);save('cs_custom',store.custom);if(selThemeId===t.id)selThemeId='editorial';renderCustomGrid();renderThemeGrid();toast('Pré-tema excluído');};
+    d.onclick=()=>{selThemeId=t.id;renderThemeGrid();switchView('criar');toast('Estilo selecionado ✓');};
+  });
+}
+
+/* ═══════════ MARCA ═══════════ */
+function loadBrandUI(){
+  $('#brName').value=store.brand.name||'';
+  $('#brHandle').value=store.brand.handle||'';
+  if(!$('#inHandle').value)$('#inHandle').value=store.brand.handle||'';
+  $$('#brPalette input').forEach(inp=>{inp.value=store.brand.colors[+inp.dataset.i]||'#6d8bff';inp.parentElement.style.background=inp.value;});
+  if(store.brand.logo){$('#logoPreviewWrap').innerHTML='<img src="'+store.brand.logo+'" style="width:54px;height:54px;object-fit:contain;border-radius:8px">';}
+  $('#brandSub').textContent=store.brand.name?store.brand.name:'Transforme notícias em carrosséis';
+}
+function loadBrandLogo(){
+  if(store.brand.logo){brandLogoImg=new Image();brandLogoImg.onload=()=>{if(CUR.slides.length)renderResult();};brandLogoImg.src=store.brand.logo;}
+  else brandLogoImg=null;
+}
+function saveBrand(){
+  store.brand.name=$('#brName').value.trim();
+  let hd=$('#brHandle').value.trim()||'@suamarca';
+  if(!hd.startsWith('@'))hd='@'+hd;
+  store.brand.handle=hd;
+  store.brand.colors=$$('#brPalette input').map(i=>i.value);
+  save('cs_brand',store.brand);
+  loadBrandUI();loadBrandLogo();
+  if(CUR.slides.length)renderResult();
+  toast('Identidade salva ✅');
+}
+
+/* ═══════════ NAVEGAÇÃO ═══════════ */
+function switchView(v){
+  $$('.view').forEach(el=>el.classList.remove('on'));
+  $('#v-'+v).classList.add('on');
+  $$('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  window.scrollTo(0,0);
+}
+
+/* ═══════════ BIND ═══════════ */
+$$('.nav button').forEach(b=>b.onclick=()=>switchView(b.dataset.v));
+$('#genBtn').onclick=generate;
+$('#regenBtn').onclick=regen;
+$('#dlAll').onclick=downloadAll;
+$('#copyCap').onclick=()=>{const c=buildCaption();if(navigator.clipboard){navigator.clipboard.writeText(c).then(()=>toast('Legenda copiada 📝')).catch(()=>toast('Copie manualmente abaixo'));}else toast('Copie manualmente abaixo');};
+$$('#ctaSeg button').forEach(b=>b.onclick=()=>{$$('#ctaSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');selCta=b.dataset.cta;if(CUR.slides.length)regen();});
+$('#fillExample').onclick=()=>{
+  $('#inTitle').value='Uso excessivo de telas eleva casos de miopia em jovens, aponta estudo';
+  $('#inBody').value='Um novo estudo com mais de 5 mil participantes revelou que o tempo médio diante de telas dobrou nos últimos cinco anos. Os pesquisadores observaram um aumento de 40% nos diagnósticos de miopia entre pessoas de 12 a 25 anos. Segundo os especialistas, a falta de exposição à luz natural e o foco prolongado em objetos próximos são os principais fatores. A recomendação é fazer pausas a cada 20 minutos e olhar para um ponto distante por 20 segundos. Óculos com lentes de proteção e acompanhamento oftalmológico regular também ajudam a reduzir o avanço do problema.';
+  toast('Exemplo preenchido — toque em Gerar');
+};
+
+$('#upzone').onclick=()=>$('#refFile').click();
+$('#refFile').onchange=e=>handleRefFiles(e.target.files);
+$('#saveTheme').onclick=saveCustomTheme;
+segBind('#ctFont',v=>ctState.font=v);
+segBind('#ctDensity',v=>ctState.density=v);
+segBind('#ctLayout',v=>ctState.layout=v);
+segBind('#ctTexture',v=>ctState.texture=v);
+function segBind(sel,cb){$$(sel+' button').forEach(b=>b.onclick=()=>{$$(sel+' button').forEach(x=>x.classList.remove('on'));b.classList.add('on');cb(b.dataset.v);});}
+
+$$('#brPalette input').forEach(inp=>inp.oninput=()=>inp.parentElement.style.background=inp.value);
+$('#logoZone').onclick=()=>$('#logoFile').click();
+$('#logoFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{store.brand.logo=rd.result;$('#logoPreviewWrap').innerHTML='<img src="'+rd.result+'" style="width:54px;height:54px;object-fit:contain;border-radius:8px">';};rd.readAsDataURL(f);};
+$('#saveBrand').onclick=saveBrand;
+
+/* ═══════════ INIT ═══════════ */
+loadBrandUI();loadBrandLogo();
+renderThemeGrid();renderCustomGrid();
+
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
