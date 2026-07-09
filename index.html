@@ -874,24 +874,61 @@ function buildAIPrompt(slide){
   const context=(CUR.title||'').slice(0,120);
   return 'vertical 4:5 photorealistic editorial photograph. Main subject: '+(hint||subject)+'. News context: "'+context+'". Style: '+mood+', ultra detailed, professional photography. Absolutely no text, no letters, no words, no numbers, no watermark, no logo in the image';
 }
-function genAIImage(i,btn){
-  const s=CUR.slides[i];if(!s)return;
-  if(!navigator.onLine){toast('Sem internet — a imagem IA precisa de conexão');return;}
-  const old=btn?btn.textContent:'';if(btn){btn.textContent='⏳ Gerando…';btn.disabled=true;}
-  toast('Gerando imagem IA do slide '+(i+1)+'…');
-  const prompt=buildAIPrompt(s);
-  const seed=Math.floor(Math.random()*999999);
-  const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=864&height=1080&nologo=true&enhance=true&seed='+seed;
-  const img=new Image();img.crossOrigin='anonymous';
-  img.onload=()=>{s.photoImg=img;s.aiSeed=seed;reRenderSlide(i);renderEditList();toast('Imagem IA aplicada ao slide '+(i+1)+' ✨');};
-  img.onerror=()=>{if(btn){btn.textContent=old;btn.disabled=false;}toast('Falha ao gerar imagem — tente de novo');};
-  img.src=url;
+function loadImg(url,timeoutMs){
+  return new Promise((res,rej)=>{
+    const img=new Image();img.crossOrigin='anonymous';
+    const t=setTimeout(()=>{img.src='';rej(new Error('timeout'))},timeoutMs);
+    img.onload=()=>{clearTimeout(t);res(img)};
+    img.onerror=()=>{clearTimeout(t);rej(new Error('erro'))};
+    img.src=url;
+  });
 }
+async function genAIImage(i,btn){
+  const s=CUR.slides[i];if(!s||s._aiBusy)return false;
+  if(!navigator.onLine){toast('Sem internet — a imagem IA precisa de conexão');return false;}
+  s._aiBusy=true;
+  btn=btn||$('#editList [data-ai="'+i+'"]');
+  const old=btn?btn.textContent:'';
+  if(btn){btn.textContent='⏳ Gerando… (até 1 min)';btn.disabled=true;}
+  const prompt=buildAIPrompt(s);
+  // tentativa 1: flux + enhance (melhor); tentativa 2: turbo (mais rápido)
+  const tries=[
+    {q:'?width=864&height=1080&nologo=true&enhance=true&model=flux',t:100000},
+    {q:'?width=768&height=960&nologo=true&model=turbo',t:60000},
+  ];
+  for(let a=0;a<tries.length;a++){
+    try{
+      const seed=Math.floor(Math.random()*999999);
+      const img=await loadImg('https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+tries[a].q+'&seed='+seed,tries[a].t);
+      s.photoImg=img;s.aiSeed=seed;s._aiBusy=false;
+      reRenderSlide(i);renderEditList();
+      toast('Imagem IA aplicada ao slide '+(i+1)+' ✨');
+      return true;
+    }catch(e){
+      if(a===0)toast('Servidor demorou… tentando modo rápido no slide '+(i+1));
+      await new Promise(r=>setTimeout(r,4000));
+    }
+  }
+  s._aiBusy=false;
+  if(btn){btn.textContent=old;btn.disabled=false;}
+  toast('Servidor de IA ocupado — aguarde ~1 min e tente de novo');
+  return false;
+}
+let aiAllRunning=false;
 async function genAIAll(){
-  if(!CUR.slides.length)return;
+  if(!CUR.slides.length||aiAllRunning)return;
   if(!navigator.onLine){toast('Sem internet — a imagem IA precisa de conexão');return;}
-  toast('Gerando imagens IA para todos os slides…');
-  CUR.slides.forEach((s,i)=>setTimeout(()=>genAIImage(i),i*900));
+  aiAllRunning=true;
+  const btn=$('#aiAllBtn');const old=btn.textContent;btn.disabled=true;
+  const n=CUR.slides.length;let ok=0;
+  for(let i=0;i<n;i++){
+    btn.textContent='⏳ '+(i+1)+'/'+n;
+    toast('Gerando imagem '+(i+1)+' de '+n+'… (uma por vez, pode levar minutos)');
+    if(await genAIImage(i)) ok++;
+    if(i<n-1) await new Promise(r=>setTimeout(r,9000)); // respeita o limite do serviço grátis
+  }
+  btn.textContent=old;btn.disabled=false;aiAllRunning=false;
+  toast(ok===n?'Todas as '+n+' imagens geradas ✅':ok+' de '+n+' geradas — tente ✨ nos que faltaram');
 }
 function editRow(lbl,val,key,area){
   const el=area?'<textarea data-edit="'+key+'">'+esc(val)+'</textarea>':'<input data-edit="'+key+'" value="'+esc(val)+'">';
