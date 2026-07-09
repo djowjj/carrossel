@@ -218,7 +218,10 @@ input::placeholder,textarea::placeholder{color:var(--muted2)}
   <div id="resultWrap" style="display:none">
     <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>Prévia — arraste ↔</span>
-      <button class="btn mini ghost" id="regenBtn">🎲 Variar</button>
+      <span style="display:flex;gap:7px">
+        <button class="btn mini ghost" id="aiAllBtn">🎨 IA em todos</button>
+        <button class="btn mini ghost" id="regenBtn">🎲 Variar</button>
+      </span>
     </div>
     <div class="carousel" id="carousel"></div>
 
@@ -790,8 +793,9 @@ function renderEditList(){
     if(s.type!=='content') rows+=editRow('Título',s.title||'','t'+i);
     if(s.type!=='cover') rows+=editRow('Texto',s.body||'','b'+i,true);
     const hasP=!!s.photoImg;
-    rows+='<div class="editrow" style="display:flex;gap:8px;align-items:center">'+
+    rows+='<div class="editrow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
       '<button class="btn mini ghost" data-photo="'+i+'">📷 '+(hasP?'Trocar foto':'Foto de fundo')+'</button>'+
+      '<button class="btn mini ghost" data-ai="'+i+'">✨ Imagem IA</button>'+
       (hasP?'<button class="btn mini ghost" data-rmphoto="'+i+'" style="color:var(--bad)">Remover</button>':'')+
       '<input type="file" accept="image/*" data-pfile="'+i+'" hidden></div>';
     d.innerHTML='<div class="edititem-head">'+chip+'</div>'+rows;
@@ -807,6 +811,7 @@ function renderEditList(){
     };
   });
   $$('#editList [data-photo]').forEach(b=>b.onclick=()=>$('#editList [data-pfile="'+b.dataset.photo+'"]').click());
+  $$('#editList [data-ai]').forEach(b=>b.onclick=()=>genAIImage(+b.dataset.ai,b));
   $$('#editList [data-pfile]').forEach(inp=>inp.onchange=e=>{
     const i=+inp.dataset.pfile, f=e.target.files[0];if(!f)return;
     const img=new Image();img.onload=()=>{CUR.slides[i].photoImg=img;reRenderSlide(i);renderEditList();toast('Foto aplicada ao slide '+(i+1));};
@@ -815,6 +820,46 @@ function renderEditList(){
   $$('#editList [data-rmphoto]').forEach(b=>b.onclick=()=>{const i=+b.dataset.rmphoto;delete CUR.slides[i].photoImg;reRenderSlide(i);renderEditList();});
 }
 function reRenderSlide(i){const cv=$$('#carousel .slide canvas')[i];if(cv)renderSlide(cv,CUR.slides[i],CUR.theme);}
+
+/* ═══════════ IMAGEM POR IA (Pollinations — grátis, sem chave) ═══════════ */
+const AI_SCENES={
+  'saúde':'modern medical clinic, soft natural light, health concept',
+  'tecnologia':'futuristic technology scene, sleek devices, subtle neon glow',
+  'economia':'financial district skyline, market charts glowing on screens',
+  'esporte':'dramatic stadium at night, athletic action, floodlights',
+  'política':'imposing government building with classical columns, dusk',
+  'meio ambiente':'lush green forest, sun rays through trees, nature',
+  'visão & estilo':'elegant eyeglasses close-up on studio surface, fashion editorial',
+  'entretenimento':'cinema stage lights, glamorous atmosphere',
+  'educação':'warm library with books and soft window light',
+  'viagem':'breathtaking travel destination, golden hour landscape',
+  'notícia':'dynamic city scene, editorial photography'
+};
+function buildAIPrompt(slide){
+  const scene=AI_SCENES[(CUR.cat&&CUR.cat.name)||'notícia']||AI_SCENES['notícia'];
+  const kw=(slide.type==='cover'?(CUR.title||''):(slide.body||'')).split(/\s+/).slice(0,10).join(' ');
+  const mood=isLight((CUR.theme&&CUR.theme.bg.colors[0])||'#000')?'bright, clean, minimal, airy':'dark, moody, cinematic lighting';
+  return 'photorealistic vertical editorial photograph, '+scene+', related to: '+kw+', '+mood+', high detail, professional photography, no text, no letters, no words, no watermark, no logo';
+}
+function genAIImage(i,btn){
+  const s=CUR.slides[i];if(!s)return;
+  if(!navigator.onLine){toast('Sem internet — a imagem IA precisa de conexão');return;}
+  const old=btn?btn.textContent:'';if(btn){btn.textContent='⏳ Gerando…';btn.disabled=true;}
+  toast('Gerando imagem IA do slide '+(i+1)+'…');
+  const prompt=buildAIPrompt(s);
+  const seed=Math.floor(Math.random()*999999);
+  const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=864&height=1080&nologo=true&seed='+seed;
+  const img=new Image();img.crossOrigin='anonymous';
+  img.onload=()=>{s.photoImg=img;s.aiSeed=seed;reRenderSlide(i);renderEditList();toast('Imagem IA aplicada ao slide '+(i+1)+' ✨');};
+  img.onerror=()=>{if(btn){btn.textContent=old;btn.disabled=false;}toast('Falha ao gerar imagem — tente de novo');};
+  img.src=url;
+}
+async function genAIAll(){
+  if(!CUR.slides.length)return;
+  if(!navigator.onLine){toast('Sem internet — a imagem IA precisa de conexão');return;}
+  toast('Gerando imagens IA para todos os slides…');
+  CUR.slides.forEach((s,i)=>setTimeout(()=>genAIImage(i),i*900));
+}
 function editRow(lbl,val,key,area){
   const el=area?'<textarea data-edit="'+key+'">'+esc(val)+'</textarea>':'<input data-edit="'+key+'" value="'+esc(val)+'">';
   return '<div class="editrow"><span class="mini-lbl">'+lbl+'</span>'+el+'</div>';
@@ -1004,6 +1049,7 @@ function switchView(v){
 $$('.nav button').forEach(b=>b.onclick=()=>switchView(b.dataset.v));
 $('#genBtn').onclick=generate;
 $('#regenBtn').onclick=regen;
+$('#aiAllBtn').onclick=genAIAll;
 $('#dlAll').onclick=downloadAll;
 $('#copyCap').onclick=()=>{const c=buildCaption();if(navigator.clipboard){navigator.clipboard.writeText(c).then(()=>toast('Legenda copiada 📝')).catch(()=>toast('Copie manualmente abaixo'));}else toast('Copie manualmente abaixo');};
 $$('#ctaSeg button').forEach(b=>b.onclick=()=>{$$('#ctaSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');selCta=b.dataset.cta;if(CUR.slides.length)regen();});

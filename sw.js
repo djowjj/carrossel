@@ -1,4 +1,4 @@
-const CACHE = 'carrossel-studio-v1';
+const CACHE = 'carrossel-studio-v2';
 const FILES = ['./', './index.html', './manifest.json', './icon.png'];
 
 self.addEventListener('install', e => {
@@ -14,6 +14,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // só intercepta o próprio site; imagens IA (pollinations) passam direto
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html')))
   );
