@@ -793,6 +793,8 @@ function renderEditList(){
     if(s.type!=='content') rows+=editRow('Título',s.title||'','t'+i);
     if(s.type!=='cover') rows+=editRow('Texto',s.body||'','b'+i,true);
     const hasP=!!s.photoImg;
+    rows+='<div class="editrow"><span class="mini-lbl">Imagem IA — descreva a cena (opcional)</span>'+
+      '<input data-aihint="'+i+'" value="'+esc(s.aiHint||'')+'" placeholder="Ex: lente de contato futurista no dedo, olho em close"></div>';
     rows+='<div class="editrow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
       '<button class="btn mini ghost" data-photo="'+i+'">📷 '+(hasP?'Trocar foto':'Foto de fundo')+'</button>'+
       '<button class="btn mini ghost" data-ai="'+i+'">✨ Imagem IA</button>'+
@@ -812,6 +814,7 @@ function renderEditList(){
   });
   $$('#editList [data-photo]').forEach(b=>b.onclick=()=>$('#editList [data-pfile="'+b.dataset.photo+'"]').click());
   $$('#editList [data-ai]').forEach(b=>b.onclick=()=>genAIImage(+b.dataset.ai,b));
+  $$('#editList [data-aihint]').forEach(inp=>inp.oninput=()=>{CUR.slides[+inp.dataset.aihint].aiHint=inp.value;});
   $$('#editList [data-pfile]').forEach(inp=>inp.onchange=e=>{
     const i=+inp.dataset.pfile, f=e.target.files[0];if(!f)return;
     const img=new Image();img.onload=()=>{CUR.slides[i].photoImg=img;reRenderSlide(i);renderEditList();toast('Foto aplicada ao slide '+(i+1));};
@@ -835,11 +838,41 @@ const AI_SCENES={
   'viagem':'breathtaking travel destination, golden hour landscape',
   'notícia':'dynamic city scene, editorial photography'
 };
+/* assunto específico manda no prompt (primeiro match vence — mais específico no topo) */
+const AI_SUBJECTS=[
+  [['lente de contato','lentes de contato'],'futuristic smart contact lens balanced on a fingertip, extreme macro of a human eye with a subtle holographic display projected on the iris'],
+  [['óculos inteligente','oculos inteligente','óculos com ia','oculos com ia','smart glasses','óculos de realidade','oculos de realidade'],'sleek futuristic smart glasses with a faint holographic interface on the lenses, premium product photography'],
+  [['óculos de sol','oculos de sol'],'stylish sunglasses on a studio surface, fashion editorial photography'],
+  [['óculos','oculos','armação','armacao','lente','grau'],'elegant modern eyeglasses close-up, premium studio product photography'],
+  [['miopia','visão','visao','oftalmo','catarata','retina','olho ','olhos'],'extreme macro photograph of a human eye with a detailed iris, clinical and beautiful'],
+  [['vacina','remédio','remedio','medicament'],'medical vials and syringe on a clean clinical surface, soft light'],
+  [['hospital','cirurgia','médic','medic'],'modern hospital corridor, doctors in the distance, soft cold light'],
+  [['inteligência artificial','inteligencia artificial','chatgpt','chatbot',' ia '],'abstract artificial intelligence concept, glowing neural network patterns, futuristic'],
+  [['celular','smartphone','iphone','android'],'modern smartphone held in a hand, glowing screen, city bokeh background'],
+  [['carro elétrico','carro eletrico','veículo','veiculo','carro '],'sleek modern electric car on a city street at dusk, headlights on'],
+  [['dólar','dolar','real ','moeda','dinheiro','salário','salario','inflação','inflacao','juros'],'brazilian currency banknotes and rising financial chart, dramatic macro'],
+  [['bolsa de valores','ações','acoes','investiment','mercado financeiro'],'stock market trading screens glowing with charts, financial district'],
+  [['futebol','gol ','campeonato','copa '],'soccer stadium at night, ball on the pitch, dramatic floodlights'],
+  [['chuva','tempestade','enchente','clima','calor','temperatura'],'dramatic storm clouds over a city skyline, cinematic weather'],
+  [['floresta','amazônia','amazonia','desmatamento'],'aerial view of lush rainforest, river winding through trees'],
+  [['escola','professor','aluno','universidade','enem'],'bright classroom with empty desks, warm morning light through windows'],
+  [['avião','aviao','aeroporto','passagem','viagem','turismo'],'airplane wing above the clouds at golden hour, travel photography'],
+  [['filme','cinema','série','serie','streaming','netflix'],'vintage cinema projector with a light beam in a dark room'],
+  [['música','musica','show ','festival'],'concert stage with dramatic lights and silhouetted crowd'],
+];
 function buildAIPrompt(slide){
-  const scene=AI_SCENES[(CUR.cat&&CUR.cat.name)||'notícia']||AI_SCENES['notícia'];
-  const kw=(slide.type==='cover'?(CUR.title||''):(slide.body||'')).split(/\s+/).slice(0,10).join(' ');
+  // 1) descrição manual do usuário vence tudo
+  const hint=(slide.aiHint||'').trim();
+  // 2) assunto detectado no texto da notícia
+  const padded=(' '+(CUR.title||'')+' '+(CUR.body||'')+' ').toLowerCase();
+  let subject='';
+  if(!hint){
+    for(const pair of AI_SUBJECTS){ if(pair[0].some(k=>padded.includes(k))){subject=pair[1];break;} }
+    if(!subject) subject=AI_SCENES[(CUR.cat&&CUR.cat.name)||'notícia']||AI_SCENES['notícia'];
+  }
   const mood=isLight((CUR.theme&&CUR.theme.bg.colors[0])||'#000')?'bright, clean, minimal, airy':'dark, moody, cinematic lighting';
-  return 'photorealistic vertical editorial photograph, '+scene+', related to: '+kw+', '+mood+', high detail, professional photography, no text, no letters, no words, no watermark, no logo';
+  const context=(CUR.title||'').slice(0,120);
+  return 'vertical 4:5 photorealistic editorial photograph. Main subject: '+(hint||subject)+'. News context: "'+context+'". Style: '+mood+', ultra detailed, professional photography. Absolutely no text, no letters, no words, no numbers, no watermark, no logo in the image';
 }
 function genAIImage(i,btn){
   const s=CUR.slides[i];if(!s)return;
@@ -848,7 +881,7 @@ function genAIImage(i,btn){
   toast('Gerando imagem IA do slide '+(i+1)+'…');
   const prompt=buildAIPrompt(s);
   const seed=Math.floor(Math.random()*999999);
-  const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=864&height=1080&nologo=true&seed='+seed;
+  const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=864&height=1080&nologo=true&enhance=true&seed='+seed;
   const img=new Image();img.crossOrigin='anonymous';
   img.onload=()=>{s.photoImg=img;s.aiSeed=seed;reRenderSlide(i);renderEditList();toast('Imagem IA aplicada ao slide '+(i+1)+' ✨');};
   img.onerror=()=>{if(btn){btn.textContent=old;btn.disabled=false;}toast('Falha ao gerar imagem — tente de novo');};
