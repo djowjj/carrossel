@@ -174,7 +174,7 @@ input::placeholder,textarea::placeholder{color:var(--muted2)}
 <section class="view on" id="v-criar">
   <div class="section-title">1 · A notícia</div>
   <label class="fld">
-    <span class="lbl">Título / manchete <span class="sub">— o gancho principal</span></span>
+    <span class="lbl">Título / manchete <span class="sub">— o gancho. Dica: *palavra* fica na cor de destaque</span></span>
     <input id="inTitle" placeholder="Ex: Óculos com filtro de luz azul reduzem cansaço visual em 60%">
   </label>
   <label class="fld">
@@ -535,25 +535,44 @@ function renderSlide(cv,slide,theme,ctx2){
     roundRect(g,cx,cy,cw,ch,34);g.fill();
   }
 
+  // número de página gigante "fantasma" nos slides de conteúdo (toque editorial)
+  if(slide.type==='content'&&!hasPhoto){
+    const idxNum=CUR.slides.indexOf(slide);
+    g.save();g.globalAlpha=.07;g.fillStyle=th.accent;
+    g.font='900 360px '+(FONTS[th.font]||FONTS.sans).h;
+    g.textAlign='right';g.textBaseline='top';
+    g.fillText(String(idxNum).padStart(2,'0'),W-40,H-430);
+    g.restore();g.textBaseline='top';
+  }
+
   const centered=(slide.type!=='content');
   let y=ty;
   for(const m of measured.items){
     if(m.role==='kicker'){
       g.fillStyle=th.accent;
       g.font='800 '+m.fs+'px '+F.b;
+      if('letterSpacing' in g)g.letterSpacing='5px';        // tracking editorial no selo
       g.textAlign=centered?'center':'left';
       const kx=centered?W/2:pad;
       g.fillText(m.lines[0].toUpperCase(),kx,y);
       const kw=Math.min(g.measureText(m.lines[0].toUpperCase()).width,300);
+      if('letterSpacing' in g)g.letterSpacing='0px';
       g.fillRect(centered?W/2-kw/2:pad,y+m.fs+14,kw,4);
       y+=m.h;
     } else if(m.role==='headline'){
-      g.fillStyle=th.ink;
-      g.textAlign=centered?'center':'left';
       g.font='900 '+m.fs+'px '+F.h;
-      const hx=centered?W/2:pad;
-      for(const ln of m.lines){g.fillText(th.headTransform==='upper'?ln.toUpperCase():ln,hx,y);y+=m.fs*1.12;}
-      y+=16;
+      g.textAlign='left';
+      const sp=g.measureText(' ').width;
+      for(const ln of m.rlines){
+        let x=centered?(W-ln.width)/2:pad;
+        for(const tok of ln.tokens){
+          g.fillStyle=tok.hl?th.accent:th.ink;
+          g.fillText(tok.w,x,y);
+          x+=g.measureText(tok.w).width+sp;
+        }
+        y+=m.fs*1.08;
+      }
+      y+=18;
     } else if(m.role==='body'){
       g.fillStyle=slide.type==='content'?th.ink:(light?'#e9edff':'#3a3a3a');
       g.textAlign=centered?'center':'left';
@@ -592,11 +611,14 @@ function measureBlocks(g,blocks,theme,F,maxW,slide){
       const fs=34;g.font='800 '+fs+'px '+F.b;
       items.push({role:'kicker',lines:[b.t],fs,h:fs+70});total+=fs+70;
     } else if(b.role==='headline'){
-      let fs=b.t.length>60?74:b.t.length>34?92:112;
+      const plain=stripRich(b.t);
+      let fs=plain.length>60?78:plain.length>34?96:118;
       g.font='900 '+fs+'px '+F.h;
-      const lines=wrap(g,theme.headTransform==='upper'?b.t.toUpperCase():b.t,maxW);
-      const h=lines.length*fs*1.12+16;
-      items.push({role:'headline',lines,fs,h});total+=h;
+      let tokens=autoHighlight(parseRich(b.t));
+      if(theme.headTransform==='upper')tokens=tokens.map(t=>({w:t.w.toUpperCase(),hl:t.hl}));
+      const rlines=wrapRich(g,tokens,maxW);
+      const h=rlines.length*fs*1.08+18;
+      items.push({role:'headline',rlines,fs,h});total+=h;
     } else {
       let fs=b.t.length>170?42:48;
       g.font='500 '+fs+'px '+F.b;
@@ -616,6 +638,29 @@ function wrap(g,text,maxW){
     else line=test;
   }
   if(line)lines.push(line);
+  return lines;
+}
+/* ── título rico: *palavra* = destaque na cor de acento ── */
+function stripRich(s){return (s||'').replace(/\*/g,'')}
+function parseRich(text){
+  const parts=String(text||'').split(/\*([^*]+)\*/g);
+  const tokens=[];
+  parts.forEach((p,idx)=>{p.split(' ').forEach(w=>{if(w)tokens.push({w,hl:idx%2===1});});});
+  return tokens;
+}
+function autoHighlight(tokens){
+  if(tokens.some(t=>t.hl))return tokens;                     // destaque manual vence
+  tokens.forEach(t=>{if(/\d/.test(t.w)||/^(ia|ai)[.!?,:;]?$/i.test(t.w))t.hl=true;});
+  return tokens;
+}
+function wrapRich(g,tokens,maxW){
+  const sp=g.measureText(' ').width;const lines=[];let cur=[],cw=0;
+  for(const t of tokens){
+    const w=g.measureText(t.w).width;
+    if(cur.length&&cw+sp+w>maxW){lines.push({tokens:cur,width:cw});cur=[t];cw=w;}
+    else{cw=cur.length?cw+sp+w:w;cur.push(t);}
+  }
+  if(cur.length)lines.push({tokens:cur,width:cw});
   return lines;
 }
 
@@ -698,10 +743,34 @@ function drawFooter(g,theme,slide){
     g.fillStyle=theme.muted;g.font='600 28px '+FONTS[theme.font].b;g.textAlign='left';
     g.fillText(idx+' / '+total,96,H-92);
   }
-  g.fillStyle=theme.accent;g.font='800 30px '+FONTS[theme.font].b;g.textAlign='right';
-  if(slide.type==='cover') g.fillText('arrasta  →',W-96,H-92);
-  else if(slide.type==='cta') g.fillText(slide.handle||store.brand.handle||'',W-96,H-92);
-  else g.fillText('→',W-96,H-90);
+  // bolinhas de progresso centrais
+  if(total>1&&total<=10){
+    const gap=30,r=7,w=(total-1)*gap;let x=W/2-w/2;
+    for(let i=1;i<=total;i++){
+      g.beginPath();g.arc(x,H-104,i===idx?r+2:r,0,7);
+      if(i===idx){g.fillStyle=theme.accent;g.globalAlpha=1;}
+      else{g.fillStyle=theme.muted;g.globalAlpha=.4;}
+      g.fill();x+=gap;
+    }
+    g.globalAlpha=1;
+  }
+  if(slide.type==='cover'){
+    // pílula "arrasta →" com cor de destaque
+    g.font='800 30px '+FONTS[theme.font].b;
+    const t='arrasta  →';const tw=g.measureText(t).width;
+    const pw=tw+56, px=W-96-pw, py=H-140, ph=62;
+    g.fillStyle=theme.accent;roundRect(g,px,py,pw,ph,31);g.fill();
+    g.fillStyle=isLight(theme.accent)?'#111111':'#ffffff';
+    g.textAlign='center';g.textBaseline='middle';
+    g.fillText(t,px+pw/2,py+ph/2+2);
+    g.textBaseline='alphabetic';
+  } else if(slide.type==='cta'){
+    g.fillStyle=theme.accent;g.font='800 30px '+FONTS[theme.font].b;g.textAlign='right';
+    g.fillText(slide.handle||store.brand.handle||'',W-96,H-92);
+  } else {
+    g.fillStyle=theme.accent;g.font='800 34px '+FONTS[theme.font].b;g.textAlign='right';
+    g.fillText('→',W-96,H-88);
+  }
   g.restore();
 }
 
@@ -939,7 +1008,7 @@ function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').repl
 /* ═══════════ LEGENDA ═══════════ */
 function buildCaption(){
   const s=CUR.slides;if(!s.length)return'';
-  const first=s[0].title;
+  const first=stripRich(s[0].title);
   const summary=s.filter(x=>x.type==='content').map(x=>'• '+x.body.split('\n')[0]).slice(0,3).join('\n');
   const tags=hashtags(CUR.cat,CUR.title+' '+CUR.body);
   const h=CUR.handle;
